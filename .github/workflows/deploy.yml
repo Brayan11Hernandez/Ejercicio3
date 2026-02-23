@@ -1,0 +1,73 @@
+name: Build & Deploy to Elastic Beanstalk
+
+on:
+  push:
+    branches: ["assignment-03"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Set env vars
+        run: |
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> $GITHUB_ENV
+          echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}" >> $GITHUB_ENV
+          echo "EB_APPLICATION=${{ secrets.EB_APPLICATION }}" >> $GITHUB_ENV
+          echo "EB_ENVIRONMENT=${{ secrets.EB_ENVIRONMENT }}" >> $GITHUB_ENV
+          echo "S3_BUCKET=${{ secrets.S3_BUCKET }}" >> $GITHUB_ENV
+
+      - name: Login to Amazon ECR
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "ACCOUNT_ID=$ACCOUNT_ID" >> $GITHUB_ENV
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+
+      - name: Build Docker image
+        run: |
+          IMAGE_TAG=${GITHUB_SHA::7}
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          docker build -t "$ECR_REPOSITORY:$IMAGE_TAG" .
+
+      - name: Push Docker image to ECR
+        run: |
+          ECR_URI="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY"
+          echo "ECR_URI=$ECR_URI" >> $GITHUB_ENV
+          docker tag "$ECR_REPOSITORY:$IMAGE_TAG" "$ECR_URI:$IMAGE_TAG"
+          docker push "$ECR_URI:$IMAGE_TAG"
+
+      - name: Prepare Dockerrun.aws.json
+        run: |
+          sed -i "s|REPLACE_ECR_IMAGE_URI|$ECR_URI:$IMAGE_TAG|g" Dockerrun.aws.json
+
+      - name: Create deployment bundle
+        run: zip -r deploy.zip Dockerrun.aws.json
+
+      - name: Upload bundle to S3
+        run: |
+          VERSION_LABEL="v-${GITHUB_RUN_NUMBER}-${IMAGE_TAG}"
+          echo "VERSION_LABEL=$VERSION_LABEL" >> $GITHUB_ENV
+          aws s3 cp deploy.zip "s3://$S3_BUCKET/$EB_APPLICATION/$VERSION_LABEL.zip"
+
+      - name: Create EB application version
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name "$EB_APPLICATION" \
+            --version-label "$VERSION_LABEL" \
+            --source-bundle S3Bucket="$S3_BUCKET",S3Key="$EB_APPLICATION/$VERSION_LABEL.zip"
+
+      - name: Deploy to EB environment
+        run: |
+          aws elasticbeanstalk update-environment \
+            --environment-name "$EB_ENVIRONMENT" \
+            --version-label "$VERSION_LABEL"

@@ -1,0 +1,8 @@
+{
+  "AWSEBDockerrunVersion": "1",
+  "Image": {
+    "Name": "REPLACE_ECR_IMAGE_URI",
+    "Update": "true"
+  },
+  "Ports": [{ "ContainerPort": "80" }]
+}
