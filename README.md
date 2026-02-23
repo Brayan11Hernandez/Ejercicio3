@@ -11,3 +11,4 @@ AWS Elastic Beanstalk
 Ejercicio3-app-env.eba-cbd9rmew.us-east-2.elasticbeanstalk.com
 
 trigger deploy
+url =[http://ejercicio3-app-env.eba-cbd9rmew.us-east-2.elasticbeanstalk.com ](http://ejercicio3-app-env.eba-cbd9rmew.us-east-2.elasticbeanstalk.com/)
