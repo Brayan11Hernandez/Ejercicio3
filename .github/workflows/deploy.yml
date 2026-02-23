@@ -13,10 +13,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Load secrets from Doppler
-        uses: dopplerhq/cli-action@v3
-        with:
-          token: ${{ secrets.DOPPLER_TOKEN }}
+      - name: Install Doppler CLI
+        run: |
+          curl -Ls https://cli.doppler.com/install.sh | sh
+
+      - name: Load secrets from Doppler into env
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        run: |
+          doppler secrets download --no-file --format env > .doppler.env
+          cat .doppler.env | sed 's/^/EXPORTING: /' || true
+          set -a
+          source .doppler.env
+          set +a
+
+          # verify required vars exist (prints only names, not values)
+          for v in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION ECR_REPOSITORY S3_BUCKET EB_APPLICATION EB_ENVIRONMENT; do
+            if [ -z "${!v}" ]; then echo "Missing env var: $v" && exit 1; fi
+          done
 
       - name: Configure AWS credentials
         run: |
