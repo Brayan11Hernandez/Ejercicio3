@@ -1,4 +1,5 @@
 # AWS Beanstalk
+
 Pagina Creada
 <img width="2559" height="1481" alt="image" src="https://github.com/user-attachments/assets/5d4739c8-6e90-4e33-8653-7088374e7ff5" />
 
@@ -8,3 +9,5 @@ Husky
 
 AWS Elastic Beanstalk
 Ejercicio3-app-env.eba-cbd9rmew.us-east-2.elasticbeanstalk.com
+
+trigger deploy
